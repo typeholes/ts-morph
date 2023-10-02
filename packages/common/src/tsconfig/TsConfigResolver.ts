@@ -25,6 +25,11 @@ export class TsConfigResolver {
   }
 
   @Memoize
+  public getProjectReferences() {
+    return this.parseJsonConfigFileContent().projectReferences || [];
+  }
+
+  @Memoize
   getPaths(compilerOptions?: CompilerOptions) {
     const files = new Set<StandardizedFilePath>();
     const { fileSystem } = this;

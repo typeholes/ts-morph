@@ -27,6 +27,7 @@ export declare class TsConfigResolver {
     constructor(fileSystem: TransactionalFileSystem, tsConfigFilePath: StandardizedFilePath, encoding: string);
     getCompilerOptions(): CompilerOptions;
     getErrors(): ts.Diagnostic[];
+    getProjectReferences(): readonly ts.ProjectReference[];
     getPaths(compilerOptions?: CompilerOptions): {
         filePaths: StandardizedFilePath[];
         directoryPaths: StandardizedFilePath[];

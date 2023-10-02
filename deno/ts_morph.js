@@ -20225,6 +20225,7 @@ __decorate([
 class Project {
     constructor(options = {}) {
         var _a;
+        this._projectReferences = [];
         verifyOptions();
         const fileSystem = getFileSystem();
         const fileSystemWrapper = new TransactionalFileSystem({
@@ -20235,6 +20236,12 @@ class Project {
         const tsConfigResolver = options.tsConfigFilePath == null
             ? undefined
             : new TsConfigResolver(fileSystemWrapper, fileSystemWrapper.getStandardizedAbsolutePath(options.tsConfigFilePath), getEncoding());
+        if (tsConfigResolver) {
+            for (const ref of tsConfigResolver.getProjectReferences()) {
+                const refOptions = { ...options, tsConfigFilePath: ref.path };
+                this._projectReferences.push(new Project(refOptions));
+            }
+        }
         const compilerOptions = getCompilerOptions();
         const compilerOptionsContainer = new CompilerOptionsContainer();
         compilerOptionsContainer.set(compilerOptions);
@@ -20283,6 +20290,9 @@ class Project {
                 return (_a = options.compilerOptions.charset) !== null && _a !== void 0 ? _a : defaultEncoding;
             return defaultEncoding;
         }
+    }
+    get projectReferences() {
+        return this._projectReferences;
     }
     get manipulationSettings() {
         return this._context.manipulationSettings;
