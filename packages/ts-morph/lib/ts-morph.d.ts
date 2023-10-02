@@ -497,11 +497,13 @@ export declare class ManipulationError extends errors.InvalidOperationError {
 
 /** Project that holds source files. */
 export declare class Project {
+  readonly _projectReferences: Project[];
   /**
    * Initializes a new instance.
    * @param options - Optional options.
    */
   constructor(options?: ProjectOptions);
+  get projectReferences(): Project[];
   /** Gets the manipulation settings. */
   get manipulationSettings(): ManipulationSettingsContainer;
   /** Gets the compiler options for modification. */

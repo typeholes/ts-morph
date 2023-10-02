@@ -1,14 +1,15 @@
-import { CompilerOptions, errors, getLibFiles, InMemoryFileSystemHost, nameof, ScriptKind, ScriptTarget, SyntaxKind, ts } from "@ts-morph/common";
+import { CompilerOptions, errors, getLibFiles, InMemoryFileSystemHost, nameof, ScriptKind, ScriptTarget, StandardizedFilePath, SyntaxKind, ts } from "@ts-morph/common";
 import { expect } from "chai";
 import { assert, IsExact } from "conditional-type-checks";
 import { EOL } from "os";
 import * as path from "path";
-import { ClassDeclaration, EmitResult, Identifier, InterfaceDeclaration, MemoryEmitResult, ModuleDeclaration, Node, SourceFile } from "../compiler";
+import { ClassDeclaration, EmitResult, ExportDeclaration, Identifier, InterfaceDeclaration, MemoryEmitResult, ModuleDeclaration, Node, SourceFile } from "../compiler";
 import { IndentationText } from "../options";
 import { Project, ProjectOptions } from "../Project";
 import { SourceFileStructure, StructureKind } from "../structures";
 import { OptionalKindAndTrivia } from "./compiler/testHelpers";
 import * as testHelpers from "./testHelpers";
+import exp from "constants";
 
 console.log("");
 console.log("TypeScript version: " + ts.version);
@@ -45,6 +46,58 @@ describe("Project", () => {
       const project = new Project({ tsConfigFilePath: "tsconfig.json", compilerOptions: { rootDir: "/test/test2" }, fileSystem });
       expect(project.getSourceFiles().map(s => s.getFilePath()).sort()).to.deep.equal(["/otherFile.ts", "/test/file.ts", "/test/test2/file2.ts"].sort());
     });
+
+it("should resolve dependent composite projects", () => {
+    /*
+    A project with one modules (units) and a corresponding test file:
+    /
+    ├── src/
+    │   ├── units.ts
+    │   └── tsconfig.json
+    ├── test/
+    │   ├── units.tests.ts
+    │   └── tsconfig.json
+    ├── package.json
+    └── tsconfig.json
+     */
+    const fileSystem = new InMemoryFileSystemHost();
+
+    fileSystem.writeFileSync("/package.json", `{ "name": "testing", "version": "0.0.1" }`);
+    fileSystem.writeFileSync("/tsconfig.json", `{ "compilerOptions": { "composite": true }, "references": [{ "path": "./src" }, { "path": "./test" }] }`);
+    fileSystem.mkdirSync("/src");
+    fileSystem.writeFileSync(
+      "/src/units.ts",
+      "export class Test {}",
+    );
+    fileSystem.writeFileSync("/src/tsconfig.json", `{ "files": ["units.ts"], "compilerOptions": { "composite": true } }`);
+    fileSystem.writeFileSync("/tsconfig.json", `{ "compilerOptions": { "composite": true }, "references": [{ "path": "./src" }, { "path": "./test" }] }`);
+    fileSystem.mkdirSync("/test");
+    fileSystem.writeFileSync(
+      "/test/units.tests.ts",
+      `import { Test } from 'units';`,
+    );
+    fileSystem.writeFileSync("/test/tsconfig.json", `{ "files": ["units.tests.ts"], "compilerOptions": { "composite": true }, "references": [{ "path": "../src" }] }`);
+
+    const testFiles = ['/test/units.tests.ts'];
+    const srcFiles = [ '/src/units.ts'];
+
+    const project = new Project({
+      tsConfigFilePath: "tsconfig.json",
+      fileSystem,
+      skipLoadingLibFiles: true,
+      skipFileDependencyResolution: true,
+    });
+
+    project.resolveSourceFileDependencies();
+
+    console.log(project.projectReferences.keys())
+    expect(project.projectReferences.size).to.equal(2);
+    const srcProject = project.projectReferences.get('/src' as StandardizedFilePath)!
+    const testProject = project.projectReferences.get('/test' as StandardizedFilePath)!
+    expect(srcProject.getSourceFiles().map(s => s.getFilePath())).to.deep.equal([...srcFiles]);
+    expect(testProject.getSourceFiles().map(s => s.getFilePath())).to.deep.equal([...testFiles]);
+    expect(project.getSourceFiles().map(s => s.getFilePath())).to.deep.equal([...srcFiles, ...testFiles]);
+  });
 
     it("should not add the files from tsconfig.json when specifying not to", () => {
       const fileSystem = new InMemoryFileSystemHost();

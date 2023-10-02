@@ -77,6 +77,8 @@ export class Project {
   /** @internal */
   readonly _context: ProjectContext;
 
+  readonly _projectReferences: Map<StandardizedFilePath, Project> = new Map();
+
   /**
    * Initializes a new instance.
    * @param options - Optional options.
@@ -97,6 +99,14 @@ export class Project {
       ? undefined
       : new TsConfigResolver(fileSystemWrapper, fileSystemWrapper.getStandardizedAbsolutePath(options.tsConfigFilePath), getEncoding());
 
+      // todo handle circular references
+      if (tsConfigResolver) {
+        for( const ref of tsConfigResolver.getProjectReferences()) {
+          const path = fileSystemWrapper.getStandardizedAbsolutePath(ref.path)
+           const refOptions : ProjectOptions = {...options, tsConfigFilePath: ref.path + '/' + 'tsconfig.json'};
+           this._projectReferences.set(path, new Project(refOptions));
+        }
+      }
     // compiler options initialization
     const compilerOptions = getCompilerOptions();
     const compilerOptionsContainer = new CompilerOptionsContainer();
@@ -131,6 +141,7 @@ export class Project {
         throw new errors.InvalidOperationError("Cannot provide a file system when specifying to use an in-memory file system.");
     }
 
+
     function getFileSystem() {
       if (options.useInMemoryFileSystem)
         return new InMemoryFileSystemHost();
@@ -154,6 +165,10 @@ export class Project {
         return options.compilerOptions.charset ?? defaultEncoding;
       return defaultEncoding;
     }
+  }
+
+  get projectReferences() {
+    return this._projectReferences;
   }
 
   /** Gets the manipulation settings. */
